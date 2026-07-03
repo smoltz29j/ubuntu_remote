@@ -1,0 +1,52 @@
+<Window x:Class="UbuntuRemote.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ubuntu Remote"
+        Width="1280" Height="800"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- サイドバー: 接続先一覧 -->
+        <DockPanel Grid.Column="0" Background="#F0F0F0">
+            <TextBlock DockPanel.Dock="Top" Text="接続先" FontWeight="Bold"
+                       Margin="12,12,12,6"/>
+            <UniformGrid DockPanel.Dock="Bottom" Columns="3" Margin="8">
+                <Button Content="新規" Margin="2" Padding="0,6" Click="AddProfile_Click"/>
+                <Button Content="編集" Margin="2" Padding="0,6" Click="EditProfile_Click"/>
+                <Button Content="削除" Margin="2" Padding="0,6" Click="DeleteProfile_Click"/>
+            </UniformGrid>
+            <Button DockPanel.Dock="Bottom" Content="接続" Margin="10,0,10,2" Padding="0,8"
+                    FontWeight="Bold" Click="Connect_Click"/>
+            <ListBox x:Name="ProfileList" Margin="8,0,8,8"
+                     BorderThickness="0" Background="Transparent"
+                     MouseDoubleClick="ProfileList_MouseDoubleClick">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="4">
+                            <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold"/>
+                            <TextBlock FontSize="11" Foreground="Gray">
+                                <Run Text="{Binding Username}"/><Run Text="@"/><Run Text="{Binding Host}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <!-- セッションタブ -->
+        <Grid Grid.Column="1">
+            <TabControl x:Name="SessionTabs" Visibility="Collapsed"
+                        SelectionChanged="SessionTabs_SelectionChanged"/>
+            <StackPanel x:Name="EmptyState" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="Ubuntu Remote" FontSize="28" Foreground="Gray"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="左の一覧から接続先をダブルクリックして接続します"
+                           Foreground="Gray" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
