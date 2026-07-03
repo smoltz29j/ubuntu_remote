@@ -19,6 +19,22 @@ public partial class MainWindow : Window
             _profiles.Add(p);
         ProfileList.ItemsSource = _profiles;
         Closing += (_, _) => CloseAllSessions();
+        Loaded += (_, _) => ConnectFromCommandLine();
+    }
+
+    /// <summary>--connect <名前 or ホスト> で起動時に自動接続する。</summary>
+    private void ConnectFromCommandLine()
+    {
+        var args = Environment.GetCommandLineArgs();
+        var i = Array.IndexOf(args, "--connect");
+        if (i < 0 || i + 1 >= args.Length)
+            return;
+        var key = args[i + 1];
+        var profile = _profiles.FirstOrDefault(p =>
+            string.Equals(p.DisplayText, key, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Host, key, StringComparison.OrdinalIgnoreCase));
+        if (profile is not null)
+            OpenSession(profile);
     }
 
     private void SaveProfiles() => ProfileStore.Save(_profiles);

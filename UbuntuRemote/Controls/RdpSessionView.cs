@@ -88,15 +88,36 @@ public class RdpSessionView : Grid
 
     public void Connect()
     {
+        // WindowsFormsHost(と RDP ActiveX)のハンドルはビジュアルツリーに
+        // 載ってから生成されるため、Loaded 前の Connect は失敗する
+        if (!IsLoaded)
+        {
+            AppLog.Write($"Connect deferred until Loaded: {_profile.Host}");
+            RoutedEventHandler? once = null;
+            once = (_, _) =>
+            {
+                Loaded -= once;
+                DoConnect();
+            };
+            Loaded += once;
+            return;
+        }
+        DoConnect();
+    }
+
+    private void DoConnect()
+    {
         ApplyConfiguration();
         ShowOverlay($"{_profile.Host} に接続しています...", showRetry: false);
         StatusChanged?.Invoke(this, "接続中");
+        AppLog.Write($"Connect: {_profile.Username}@{_profile.Host}:{_profile.Port} nla={_profile.UseNla}");
         try
         {
             _rdp.Connect();
         }
         catch (Exception ex)
         {
+            AppLog.Write($"Connect threw: {ex}");
             ShowOverlay($"接続に失敗しました:\n{ex.Message}", showRetry: true);
             StatusChanged?.Invoke(this, "切断");
         }
@@ -161,6 +182,7 @@ public class RdpSessionView : Grid
 
     private void Rdp_OnConnected(object? sender, ConnectedEventArgs e)
     {
+        AppLog.Write($"Connected: {_profile.Host} mode={e.SessionMode}");
         Dispatcher.Invoke(() =>
         {
             _reconnectAttempts = 0;
@@ -172,6 +194,7 @@ public class RdpSessionView : Grid
 
     private void Rdp_OnDisconnected(object? sender, DisconnectedEventArgs e)
     {
+        AppLog.Write($"Disconnected: {_profile.Host} code={e.DisconnectCode} desc='{e.Description}' userInitiated={e.UserInitiated} closing={_closing}");
         Dispatcher.Invoke(() =>
         {
             if (_closing)
