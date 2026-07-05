@@ -13,16 +13,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 RDP サーバーが 2 つ動いている。**繋ぐべきは 3390 の xrdp**(Ubuntu のログイン情報で入れる):
 
 - **3389 = GNOME リモートログイン**(gnome-remote-desktop)。NLA 必須で認証情報も別物。誤って繋ぐと NLA 認証エラーになる。
-- **3390 = xrdp**(`/etc/xrdp/xrdp.ini` で `port=3390`)。TLS のみ・NLA なし。xrdp 0.9.24(Ubuntu 24.04)。
+- **3390 = xrdp 0.10.6(ソースビルド、GFX/H.264 対応)**。2026-07-05 に apt の 0.9.24 から移行済み。`--prefix=/usr/local` でビルドされ `--enable-x264 --enable-opus --enable-pixman --enable-fuse` 付き。稼働中の設定は **`/usr/local/etc/xrdp/xrdp.ini`**(`port=3390`、`security_layer=negotiate`)と `/usr/local/etc/xrdp/gfx.toml`。`/etc/xrdp/xrdp.ini` は旧 apt 版の残骸なので見ない(apt パッケージ xrdp 0.9.24 は hold 状態で残っているが未使用)。systemd ユニットは `/usr/local/lib/systemd/system/xrdp.service`。
+- Ubuntu Remote からの接続で **GFX + H.264 がネゴシエートされることを実機ログで確認済み**(`/var/log/xrdp.log` に `client supports gfx protocol` → `Codec search order is H264, RFX` → `Matched H264 mode`)。クライアント側の変更なしで到達している。
 - SSH (22) も開いている(`ssh smoltz@192.168.101.201`、Mac とこの Windows マシンの両方から鍵認証済み・パスワード不要)。サーバー側調査はこれで。
 - 音声はサーバー側に pipewire-module-xrdp 導入済み(クライアントが音声リダイレクトを有効にすれば鳴る)。
 
-## xrdp 0.9 系向けのクライアント設定(RdpSessionView.ApplyConfiguration)
+## xrdp 向けのクライアント設定(RdpSessionView.ApplyConfiguration)
 
-- **xrdp 0.9 系は GFX パイプライン非対応で、RemoteFX が実質最速**(Mac 版で実測)。mstsc 系クライアントが RemoteFX を提示する条件は「NetworkConnectionType=LAN + BandwidthDetection=false + 32bpp」なので明示している。
+- **「NetworkConnectionType=LAN + BandwidthDetection=false + 32bpp」を明示**している。もともとは GFX 非対応の xrdp 0.9 系で実質最速の RemoteFX を引き出すための設定だが、0.10 系(GFX/H.264)に対してもこの設定のまま H.264 がネゴシエートされる(上記の実機ログで確認)ので変更不要。
 - **UDP トランスポートは無効化**(`DisableUdpTransport = true`)。xrdp は UDP 非対応で、試行の待ち時間が無駄になるだけ。
-- **一括圧縮(`Connection.Compression`)とビットマップキャッシュ(`Performance.BitmapCaching`)はこのライブラリでは既定 off なので明示的に on**(mstsc の既定に合わせる)。RemoteFX 部分への効果は限定的だが、旧来型更新やクリップボード転送で効く。これ以上の描画高速化はクライアント側にはほぼ余地がなく、本命はサーバーを GFX/H.264 対応の xrdp 0.10 系(Ubuntu 25.04+)へ上げること。
-- xrdp 0.9 系は Display Control チャネル非対応 → 動的解像度は効かない。さらに **`ResizeBehavior.SmartReconnect`(ActiveX の Reconnect ベース)は xrdp 相手だと切断イベントも出さず白画面のまま固まる**ため使用禁止。代わりに `SmartSizing`(リサイズ中はスケーリング)+ リサイズ静止後 800ms で自前の切断→即再接続(`ReconnectForResize`)で解像度を追従させる。xrdp への再接続は同一セッションに復帰するので体感は一瞬の暗転で済む。
+- **一括圧縮(`Connection.Compression`)とビットマップキャッシュ(`Performance.BitmapCaching`)はこのライブラリでは既定 off なので明示的に on**(mstsc の既定に合わせる)。GFX/RemoteFX 部分への効果は限定的だが、旧来型更新やクリップボード転送で効く。
+- リサイズ追従は `SmartSizing`(リサイズ中はスケーリング)+ リサイズ静止後 800ms で自前の切断→即再接続(`ReconnectForResize`)。xrdp への再接続は同一セッションに復帰するので体感は一瞬の暗転で済む。この方式にした経緯: xrdp 0.9 系は Display Control チャネル(動的解像度)非対応、かつ **`ResizeBehavior.SmartReconnect`(ActiveX の Reconnect ベース)は xrdp 相手だと切断イベントも出さず白画面のまま固まる**ため使用禁止。xrdp 0.10 は Display Control チャネル対応なので動的解像度(再接続なしのリサイズ追従)に切り替えられる可能性があるが、未検証。現方式は 0.10 でも問題なく動作している。
 
 ## Build & Run
 
