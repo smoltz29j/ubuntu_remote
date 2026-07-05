@@ -3,15 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Ubuntu Remote"
         Width="1280" Height="800"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230"/>
+            <ColumnDefinition x:Name="SidebarColumn" Width="230"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- サイドバー: 接続先一覧 -->
-        <DockPanel Grid.Column="0" Background="#F0F0F0">
+        <DockPanel x:Name="Sidebar" Grid.Column="0" Background="#F0F0F0">
             <TextBlock DockPanel.Dock="Top" Text="接続先" FontWeight="Bold"
                        Margin="12,12,12,6"/>
             <UniformGrid DockPanel.Dock="Bottom" Columns="3" Margin="8">
@@ -21,6 +22,8 @@
             </UniformGrid>
             <Button DockPanel.Dock="Bottom" Content="接続" Margin="10,0,10,2" Padding="0,8"
                     FontWeight="Bold" Click="Connect_Click"/>
+            <Button DockPanel.Dock="Bottom" Content="全画面表示 (F11)" Margin="10,0,10,6" Padding="0,6"
+                    Click="FullScreen_Click"/>
             <ListBox x:Name="ProfileList" Margin="8,0,8,8"
                      BorderThickness="0" Background="Transparent"
                      MouseDoubleClick="ProfileList_MouseDoubleClick">
