@@ -195,6 +195,13 @@ public class RdpSessionView : Grid
         // xrdp は UDP トランスポート非対応。有効のままだと接続毎に UDP を試して待たされる
         cfg.Connection.DisableUdpTransport = true;
 
+        // RDP の一括圧縮(mstsc は既定で有効だがこのライブラリの既定は無効)。
+        // RemoteFX でエンコードされない旧来型の画面更新やクリップボード転送の転送量を減らす
+        cfg.Connection.Compression = true;
+
+        // 再送済みビットマップをクライアント側にキャッシュして再描画を省く
+        cfg.Performance.BitmapCaching = true;
+
         // リサイズ中はスケーリング表示で凌ぎ、静止後に ReconnectForResize が解像度を合わせる。
         // SmartReconnect(ActiveX の Reconnect ベース)は xrdp 0.9 相手だと
         // 切断イベントも出さずに白画面のまま固まるため使わない
