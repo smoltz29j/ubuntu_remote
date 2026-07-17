@@ -10,6 +10,26 @@ public static class AppLog
 
     private static readonly object Lock = new();
 
+    private const long MaxLogBytes = 1_000_000;
+
+    static AppLog()
+    {
+        // 無限に肥大化しないよう、起動時に大きくなっていたら 1 世代だけ退避する
+        try
+        {
+            var info = new FileInfo(LogPath);
+            if (info.Exists && info.Length > MaxLogBytes)
+            {
+                var old = LogPath + ".old";
+                File.Delete(old);
+                File.Move(LogPath, old);
+            }
+        }
+        catch
+        {
+        }
+    }
+
     public static void Write(string message)
     {
         try

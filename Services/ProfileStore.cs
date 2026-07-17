@@ -36,9 +36,19 @@ public static class ProfileStore
 
     public static void Save(IEnumerable<ConnectionProfile> profiles)
     {
-        Directory.CreateDirectory(Dir);
-        var json = JsonSerializer.Serialize(profiles.ToList(), JsonOptions);
-        File.WriteAllText(FilePath, json);
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            var json = JsonSerializer.Serialize(profiles.ToList(), JsonOptions);
+            // 書き込み途中のクラッシュで profiles.json を壊さないよう tmp 経由で置き換える
+            var tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, json);
+            File.Move(tmp, FilePath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Write($"Profile save failed: {ex}");
+        }
     }
 
     public static string ProtectPassword(string plain)

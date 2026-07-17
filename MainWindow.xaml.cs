@@ -24,11 +24,61 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RestoreWindowPlacement();
         foreach (var p in ProfileStore.Load())
             _profiles.Add(p);
         ProfileList.ItemsSource = _profiles;
-        Closing += (_, _) => CloseAllSessions();
+        Closing += (_, _) =>
+        {
+            SaveWindowPlacement();
+            CloseAllSessions();
+        };
         Loaded += (_, _) => ConnectFromCommandLine();
+    }
+
+    // --- ウィンドウ位置の保存/復元 ---
+
+    private void RestoreWindowPlacement()
+    {
+        var p = WindowStateStore.Load();
+        if (p is null)
+            return;
+        // モニター構成が変わって画面外になっていたら位置は復元しない
+        var virtualScreen = new Rect(
+            SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+            SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var bounds = new Rect(p.Left, p.Top, p.Width, p.Height);
+        if (p.Width >= 400 && p.Height >= 300 && virtualScreen.IntersectsWith(bounds))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = p.Left;
+            Top = p.Top;
+            Width = p.Width;
+            Height = p.Height;
+        }
+        if (p.IsMaximized)
+            WindowState = WindowState.Maximized;
+    }
+
+    private void SaveWindowPlacement()
+    {
+        // 全画面中は WindowState が Maximized になっているため、入る前の状態を使う
+        var isMaximized = _isFullScreen
+            ? _stateBeforeFullScreen == WindowState.Maximized
+            : WindowState == WindowState.Maximized;
+        var bounds = WindowState == WindowState.Normal
+            ? new Rect(Left, Top, ActualWidth, ActualHeight)
+            : RestoreBounds;
+        if (bounds.IsEmpty || bounds.Width < 100 || bounds.Height < 100)
+            return;
+        WindowStateStore.Save(new WindowPlacement
+        {
+            Left = bounds.Left,
+            Top = bounds.Top,
+            Width = bounds.Width,
+            Height = bounds.Height,
+            IsMaximized = isMaximized,
+        });
     }
 
     /// <summary>--connect <名前 or ホスト> で起動時に自動接続する。</summary>
@@ -44,6 +94,8 @@ public partial class MainWindow : Window
             string.Equals(p.Host, key, StringComparison.OrdinalIgnoreCase));
         if (profile is not null)
             OpenSession(profile);
+        else
+            AppLog.Write($"--connect: profile not found: {key}");
     }
 
     private void SaveProfiles() => ProfileStore.Save(_profiles);
@@ -106,6 +158,16 @@ public partial class MainWindow : Window
 
     private void OpenSession(ConnectionProfile profile)
     {
+        // xrdp は再接続で同一セッションに復帰するため、同じプロファイルを二重に開くと
+        // 2 つのタブが 1 つのセッションを奪い合って切断ループになる。既存タブへ切り替えるだけにする
+        var existing = SessionTabs.Items.OfType<TabItem>()
+            .FirstOrDefault(t => t.Content is RdpSessionView v && v.Profile.Id == profile.Id);
+        if (existing is not null)
+        {
+            SessionTabs.SelectedItem = existing;
+            return;
+        }
+
         var session = new RdpSessionView(profile);
 
         var headerText = new TextBlock
@@ -130,6 +192,14 @@ public partial class MainWindow : Window
         var tab = new TabItem { Header = header, Content = session };
 
         closeButton.Click += (_, _) => session.Close();
+        header.MouseDown += (_, me) =>
+        {
+            if (me.ChangedButton == MouseButton.Middle)
+            {
+                session.Close();
+                me.Handled = true;
+            }
+        };
         session.SessionClosed += (_, _) =>
         {
             SessionTabs.Items.Remove(tab);

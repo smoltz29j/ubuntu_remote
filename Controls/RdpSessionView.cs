@@ -33,6 +33,7 @@ public class RdpSessionView : Grid
     private readonly Button _retryButton;
 
     private readonly DispatcherTimer _resizeTimer;
+    private DispatcherTimer? _reconnectTimer;
     private int _reconnectAttempts;
     private bool _closing;
     private bool _connected;
@@ -73,7 +74,12 @@ public class RdpSessionView : Grid
             HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
             Visibility = Visibility.Collapsed,
         };
-        _retryButton.Click += (_, _) => { _reconnectAttempts = 0; Connect(); };
+        _retryButton.Click += (_, _) =>
+        {
+            StopReconnectTimer();
+            _reconnectAttempts = 0;
+            Connect();
+        };
 
         var panel = new StackPanel
         {
@@ -150,6 +156,7 @@ public class RdpSessionView : Grid
     {
         _closing = true;
         _resizeTimer.Stop();
+        StopReconnectTimer();
         try
         {
             _rdp.Disconnect();
@@ -309,10 +316,11 @@ public class RdpSessionView : Grid
                 ShowOverlay(
                     $"切断されました: {e.Description}\n自動再接続中... ({_reconnectAttempts}/{MaxAutoReconnectAttempts})",
                     showRetry: false);
-                var timer = new DispatcherTimer { Interval = ReconnectDelay };
-                timer.Tick += (_, _) =>
+                StopReconnectTimer();
+                _reconnectTimer = new DispatcherTimer { Interval = ReconnectDelay };
+                _reconnectTimer.Tick += (_, _) =>
                 {
-                    timer.Stop();
+                    StopReconnectTimer();
                     if (_closing)
                         return;
                     // SmartReconnect(リサイズ時の内部再接続)や RDP 組み込みの自動再接続が
@@ -324,7 +332,7 @@ public class RdpSessionView : Grid
                     }
                     Connect();
                 };
-                timer.Start();
+                _reconnectTimer.Start();
             }
             else
             {
@@ -333,6 +341,12 @@ public class RdpSessionView : Grid
                     showRetry: true);
             }
         });
+    }
+
+    private void StopReconnectTimer()
+    {
+        _reconnectTimer?.Stop();
+        _reconnectTimer = null;
     }
 
     private void ShowOverlay(string message, bool showRetry)
